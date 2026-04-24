@@ -1,0 +1,319 @@
+Ottawa Hackathon
+
+
+Nate Glubish
+Discover more from Nate Glubish
+Nate is Alberta's Minister of Technology and Innovation, and the MLA for Strathcona-Sherwood Park. Before his election to the legislature in 2019, Nate was a venture capital investor and a mergers and acquisitions executive.
+By subscribing, you agree Substack's Terms of Use, and acknowledge its Information Collection Notice and Privacy Policy.
+Already have an account? Sign in
+We’re Taking Alberta’s AI to Ottawa. Here’s Why.
+How agentic AI can follow the money, eliminate waste, and change public accountability forever.
+Nate Glubish
+Apr 13, 2026
+
+On April 29, my team from Alberta’s Ministry of Technology and Innovation is hosting a national AI hackathon in Ottawa. We’re bringing together public sector leaders, industry heavyweights, and innovators from across Canada for one day with one goal: use artificial intelligence to follow the money.
+
+Government money. Your money.
+
+Every year, billions of dollars flow from federal and provincial treasuries into grants, contributions, contracts, and transfers. That money passes through layers of departments, agencies, non-profits, and vendors before it reaches the programs and services it was meant to fund. The system is massive. The data is scattered across dozens of portals and databases. And the tools governments have traditionally used to track it all are exactly what you’d expect.
+
+Slow. Manual. Reactive. Always looking backward, never forward.
+
+We think there’s a better way.
+
+Thanks for reading! Subscribe for free to receive new posts and support my work.
+What We’ve Been Building
+
+Over the past year, my Ministry has been running a program called TRACE: Targeted Review of Alberta’s Contracts and Expenditures.
+
+Or in other words: follow the money.
+
+The concept is straightforward. Take the massive, complex data sets that already exist across government (federal grants and contributions, Alberta contracts, CRA filings, non-profit registries, sole-source procurement records) and point modern AI tools at them.
+
+Not a chatbot. Not a search bar bolted onto a spreadsheet.
+
+Agentic AI.
+
+If you’ve heard the term and weren’t sure what it meant, here’s the plain-language version. Traditional AI tools are reactive. You type a question, you get an answer.
+
+Agentic AI is different. You give it a goal, access to data, and the ability to use tools on its own. It can extract data from open portals, clean it, stage it in a database, write its own analysis scripts, and surface patterns that no human team could find manually.
+
+Not because humans aren’t smart enough, but because the data is simply too vast for any team to process.
+
+Think of it this way. A traditional analyst might spend weeks pulling records from three different government portals, formatting them, cross-referencing them, and writing a report on what they found. An AI agent can do that same work in hours. And it can do it across dozens of data sets simultaneously, flagging things a human analyst would never have time to look for.
+
+How much data are we talking about? Imagine printing out every federal grant, every Alberta contract, every CRA non-profit filing, every sole-source procurement record. You’d fill rooms.
+
+These are millions of records across dozens of databases that were never designed to talk to each other. No team of analysts, no matter how talented, could cross-reference all of it. Agentic AI can.
+
+Through TRACE, our team has proven this works. Here’s what that looks like in practice.
+Following the Money Through 80,000 Charities
+
+When we loaded CRA charity data into the system, we wanted to understand how money flows across Canada’s network of more than 80,000 registered charities. Billions of dollars move through this network every year, flowing between organizations that give and receive charitable funds. The question was straightforward: is the money flowing where it’s supposed to go, or is some of it flowing in circles?
+
+Here’s the math problem. If you want to trace how money can move through a network of 80,000 organizations in just five steps, you’re looking at 80,000 to the power of five. That’s 3.2 septillion possible combinations. No team of auditors is going to work through that.
+
+Our AI agents developed algorithms to map these flows, narrowed the field from septillions of possible paths down to several hundred organizations showing evidence of round-trip money flows, and completed the entire analysis in under 90 minutes. What would have been impossible for humans to do at scale, AI did before lunch.
+Matching People Across Disconnected Systems
+
+One of the hardest problems in government operations is entity matching: identifying the same individual across different databases that were never designed to talk to each other. If you want to measure whether a program is working, you need to know how many people it’s actually serving and how much is being spent per person.
+
+Our team in the Data and Content Management division developed a new method that combines traditional matching algorithms with AI, achieving 98% accuracy. That significantly exceeded both traditional methods and pure generative AI used alone.
+
+And it ran entirely on our sovereign compute infrastructure using fully open-source models. No cloud dependencies. 100% government-owned intellectual property.
+
+These are problems that traditional business intelligence simply cannot solve. The data is too large, the connections too complex, and the analysis too dependent on judgment at critical junctures. AI, working in a sandboxed database with human oversight, was able to execute multiple approaches, find the best one, validate the results, and present findings that were then verified by our team.
+What Are We Actually Looking For?
+
+This is where it gets concrete. We’ve identified 10 specific challenges that hackathon teams will tackle on April 29. All of them are achievable in a single day using agentic AI. Here are four that show you what’s possible.
+Zombie Recipients
+
+Which companies and non-profits received large amounts of public funding and then ceased operations shortly after? We’re talking about entities that went bankrupt, dissolved, or stopped filing within 12 months of receiving government money. Entities where public funding made up more than 70 or 80 percent of their total revenue, meaning they couldn’t survive without it.
+
+The question is simple. Did the public get anything for its money, or did it fund a disappearing act?
+Ghost Capacity
+
+This one is different from zombies. Zombies die. Ghost-capacity entities persist indefinitely. They just never do anything.
+
+These are organizations with no employees, no physical presence, and no revenue beyond government transfers. Their expenditures flow almost entirely to compensation for a small number of individuals or to further transfers to other entities. They were funded to deliver something. There is no evidence they ever could.
+Funding Loops
+
+Where does money flow in circles between charities? Using CRA T3010 data, teams will identify circular funding patterns: reciprocal gifts, triangular cycles, and longer chains where dollars leave an organization and eventually return to it.
+
+Some of these loops are perfectly normal. Denominational hierarchies and federated charities move money up and down their structures all the time. The challenge is distinguishing those from loops that exist to inflate revenue, generate tax receipts, or absorb funds into overhead without delivering any charitable programs.
+Sole-Source and Amendment Creep
+
+Which contracts started small and competitive but grew massive through sole-source amendments? Identify patterns where the amended value of a contract dwarfs the original bid. Where contracts are split just below competitive thresholds. Where the same vendor wins the initial competition and then receives ongoing sole-source work indefinitely.
+
+Every one of these patterns represents a procurement relationship that may have quietly outgrown its original justification. Every one of them is findable in the data. The tools just haven’t been pointed at it before.
+Why Ottawa, and Why Now?
+
+Alberta’s Deputy Minister of Technology and Innovation, Janak Alford, sits at the Federal-Provincial-Territorial (FPT) table on digital trust, cybersecurity, and AI. In conversations with counterparts from across the country, one question keeps coming up: how do we use AI to drive real accountability into public programs and public expenditures?
+
+This hackathon is our answer. We timed it to align with the in-person FPT meeting happening in Ottawa on April 30, so senior officials from multiple jurisdictions will already be in the room.
+
+Some readers might ask: if we’re doing this hackathon in Ottawa, what results do we have to show for it back home?
+
+A lot. Last week I wrote about how a small team of Alberta public servants used AI to replace two legacy IT systems for $2.64 million that vendors had quoted at $54 million. That’s a 95% cost reduction. Both systems delivered faster, with 643 users already on the platform. And that’s just one example. We have many other projects underway across the Government of Alberta, and we’ll be sharing more case studies soon.
+
+We’re hosting Agency 2026 because we don’t want to wait. Every province and the federal government should benefit from what we’ve learned. The sooner these tools and methods are adopted across the country, the sooner all Canadians benefit from better services, less waste, better results, and lower taxes.
+
+Alberta has done the groundwork. Our team has spent months curating data sets, testing agentic methods, and building the tools and frameworks that make this kind of analysis possible.
+
+On April 29, we’re sharing all of it.
+
+Open source.
+
+Pre-curated data sets.
+
+API keys for participating teams.
+
+Mentorship and guidance from the people who built TRACE.
+
+This is collaborative by design. The challenges facing public accountability exist in every province and at the federal level. The tools we’ve developed can be applied anywhere, by anyone, to any public data set. The more jurisdictions that adopt these methods, the better the outcomes for all Canadians.
+Who’s in the Room?
+
+Agency 2026 is an invite-only event with limited in-person capacity for up to 90 participants. Registration requires approval, so if you’re interested, apply early. Virtual participation is available for everyone else, with live stream details shared closer to the event.
+
+We’re bringing together federal and provincial ministers and deputy ministers, senior public sector officials, academics, students, and industry leaders.
+
+Confirmed presenters include representatives from AltaML, Cohere, Google, Microsoft, and AWS, alongside other leading firms from all across Canada and the global technology sector. Teams will use tools from across the industry: Gemini, Claude, OpenAI, and others. We’re providing API keys and compute budgets so teams can build without barriers.
+
+The event runs as two parallel tracks. Hackathon teams building solutions in real time, and live industry demos and presentations. Participants and senior officials will move between both throughout the day. Teams present their work at the end, and selected submissions will be recognized through awards.
+What About Guardrails?
+
+This is the question I get asked most often when I talk about AI in government. It’s a fair question, and it deserves a direct answer.
+
+Responsible AI adoption starts with clear policies. In May 2025, Alberta became one of the first provinces to formalize an enterprise-wide Artificial Intelligence Usage Policy. You can read the entire policy yourself. It’s public. Here’s what it actually requires.
+
+“You’re giving away government data to AI companies.” We’re not. The policy commits the Government of Alberta to sovereign compute capabilities for highly sensitive workloads. That means when the data requires it, AI processing happens on infrastructure that the Government of Alberta controls. For this hackathon specifically, every data set being used is open data already published on government portals. No private citizen data is involved.
+
+“These systems aren’t secure.” No AI system gets integrated into government processes or service delivery without approval from Cybersecurity Services. That’s a hard gate, not a suggestion.
+
+Before anything reaches production, teams develop and test in secure, controlled sandbox environments. Every AI system deployed in the Government of Alberta goes through a coordinated review that includes security, privacy, content management, and legal assessments.
+
+“AI hallucinates. You’re vibe-coding critical government systems.” Three layers address this.
+
+First, prevention: the policy requires that AI systems be appropriate for the task and not more complex than necessary. Systems are developed and validated in sandbox environments before they touch anything real.
+
+Second, detection: the policy establishes a trust architecture where multiple AI tools, human-centered processes, and governance work together to build confidence in AI-enabled outcomes. AI outputs are cross-checked, not taken at face value.
+
+Third, accountability: staff are required to maintain official records of all AI-related business decisions and transactions under the Records Management Regulation. Business areas own the accuracy of what AI produces. There is an audit trail, and there is someone on the hook for every output.
+
+If an AI generates something wrong, it’s not the AI’s problem. It’s the team’s responsibility to catch it before it goes anywhere.
+
+“How do you know it won’t fall apart?” AI systems are regularly tested, audited, and evaluated for effectiveness, accuracy, suitability, and alignment with privacy legislation and security requirements. Non-compliance triggers review by Cybersecurity Services, the Office of the Information and Privacy Commissioner, or the Office of the Auditor General, depending on severity. This isn’t a framework that relies on good intentions. It has teeth.
+
+These are not aspirational principles. They are binding obligations that apply to every department, every AI system, and every data set across the Government of Alberta.
+
+This is also why we built the Alberta AI Academy. We want people to understand these tools, to know what they can and can’t do, and to be equipped to use them responsibly. The Academy is free and open-access. It was originally designed for public servants, but it’s available to anyone. Thousands of participants from Alberta, other provinces, and the federal government have already enrolled. If you want to understand what agentic AI can do for your work, your organization, or just your own curiosity, start here.
+This Is Just the Beginning
+
+The insights that come out of Agency 2026 won’t stay in a conference room. The methods and tools we demonstrate on April 29 can be applied by any government, at any level, to drive accountability into public spending. The same agentic AI approaches that analyze open data can be applied, with the appropriate guardrails in place, to internal financial systems, enterprise platforms, contracts, and grants.
+
+Alberta built the tools. We tested them. We proved they work. Now we’re sharing them with the country.
+
+If you want to be part of it, here’s how.
+
+Join the hackathon. Agency 2026 takes place April 29 in Ottawa, with virtual participation available. Assemble a team of 3 to 5, come ready to build, and apply here: Agency 2026 Registration.
+
+Join the Lunch and Learn. On April 22, we’re walking through all 10 challenges and how to prepare. Join on Teams.
+
+Learn the tools. The Alberta AI Academy is free, open-access, and available to anyone. Start today.
+
+Share this with someone who should see it. If you know a public servant, a policy analyst, a data professional, or anyone who cares about how government spends public money, send them this article. The more people who understand what’s possible, the faster we get to where we want to be: a world with no government waste.
+
+We’ll see you in Ottawa.
+
+Share
+
+Agency 2026 is made possible by an outstanding team from Alberta’s Ministry of Technology and Innovation: Mykola Holovetskyi, Jaimee Kepa, Michelle Dias, Bukkie Coker, Cody Sloat, Hala Hashim, Maurice Brunelle, Richard Henderson, and Zoran Mijajlovic, with support from Jas Sunda. Their work is driving Alberta’s leadership in responsible AI adoption across the public sector.
+
+Nate Glubish is the MLA for Strathcona-Sherwood Park and Alberta’s Minister of Technology and Innovation.
+
+Agency 2026 Ottawa - National Hackathon Agenda
+
+​8:00 AM - Registration, breakfast & networking
+
+​8:30 AM - Welcome and Introduction - Deputy Minister Alford
+
+​8:40 AM - Challenge Briefing
+
+​9:00 AM - Opening Remarks - Minister Glubish
+
+​9:15 AM - Hackathon begins + Vendor demos begin
+
+​11:00 AM - Keynote: Deputy Minister Alford
+
+​12:00 PM - Working lunch - hacking and demos continue
+
+​2:00 PM - Code freeze.
+
+​2:15 PM - Finalists announced and demo preparation
+
+​2:30 PM - Finalists’ demos (5 min each) and judging
+
+​3:30 PM - Judges’ deliberation
+
+​3:45 PM - Awards ceremony + group photo with Minister
+
+​4:00 PM - Closing remarks - Minister Glubish/Deputy Minister Alford
+​What to Bring
+
+​To get the most out of the day identify a team of 3-5. Participants should come ready to build and prepared with:
+
+    ​A laptop (HDMI-compatible) and charger
+
+    ​Access to your preferred AI tools or accounts (e.g., API access, development environments)
+
+    ​Any software or setup you typically use for rapid prototyping
+
+    ​Headphones (optional, for focused work)
+
+​We will provide access to datasets and supporting resources during the event.
+
+​Participation is limited. Additional details will be shared with confirmed attendees at the event.
+​Challenges
+​1. Zombie Recipients
+
+​Which companies and nonprofits received large amounts of public funding and then ceased operations shortly after? Identify entities that went bankrupt, dissolved, or stopped filing within 12 months of receiving funding. Flag entities where public funding makes up more than 70-80% of total revenue, meaning they likely could not survive without it. The question is simple: did the public get anything for its money, or did it fund a disappearing act?
+​2. Ghost Capacity
+
+​Which funded organizations show no evidence of actually being able to deliver what they were funded to do? Look for entities with no employees, no physical presence, and no revenue beyond government transfers, where expenditures flow almost entirely to compensation for a small number of individuals or to further transfers to other entities. These are not zombies. Zombies die. Ghost-capacity entities persist indefinitely. They just never do anything.
+​3. Funding Loops
+
+​Where does money flow in circles between charities, and does it matter? Using CRA T3010 data, identify circular funding patterns: reciprocal gifts, triangular cycles, and longer chains where dollars leave an organization and eventually return to it. Most loops are structurally normal (denominational hierarchies, federated charities, donation platforms). The challenge is distinguishing these from loops that exist to inflate revenue, generate tax receipts, or absorb funds into overhead without delivering charitable programs.
+​4. Sole Source and Amendment Creep
+
+​Which contracts started small and competitive but grew large through sole-source amendments? Identify patterns where the amended value of a contract dwarfs the original bid, where contracts are split just below competitive thresholds, or where the same vendor wins the initial competition and then receives ongoing sole-source work. The goal is to surface procurement relationships that may have quietly outgrown their original justification.
+​5. Vendor Concentration
+
+​In any given category of government spending, how many vendors are actually competing? Identify areas where a single supplier or a small group of suppliers receives a disproportionate share of contracts. Measure concentration by category, department, and region. Where has incumbency replaced competition? Where has government become dependent on a vendor it can no longer walk away from?
+​6. Related Parties and Governance Networks
+
+​Who controls the entities that receive public money, and do they also control each other? Cross-reference directors from CRA T3010 filings with corporate registries and contract data. Identify individuals who sit on multiple boards of organizations that fund each other, principals of companies receiving contracts who are also directors of charities receiving grants, and former public servants connected to entities funded by their former departments.
+​7. Policy Misalignment
+
+​Is the money going where the government says its priorities are? Pick specific, measurable policy commitments (emissions targets, housing starts, reconciliation spending, healthcare capacity) and compare them to the actual flow of funds. The challenge is not abstract. It is concrete: does the spending pattern match the stated plan, and where are the biggest gaps between rhetoric and allocation?
+​8. Duplicative Funding (and Funding Gaps)
+
+​Which organizations are being funded by multiple levels of government for the same purpose, potentially without those governments knowing about each other? The flip side is equally important: where do all levels of government claim to prioritize something, yet none of them are actually funding it? Duplication catches waste. Gaps catch failure.
+​9. Contract Intelligence
+
+​What is Canada actually buying, and is it paying more over time? Identify which categories of procurement have seen the fastest cost growth, and decompose whether that growth comes from volume, unit cost, or vendor concentration. Surface the contracts and categories where taxpayers are getting less for more.
+​10. Adverse Media
+
+​Which organizations receiving public funding are the subject of serious adverse media coverage? This means regulatory enforcement actions, fraud allegations, safety incidents, criminal investigations, and sanctions. Not political controversy, not critical op-eds. The challenge is precision: build a system that distinguishes genuine red-flag reporting from noise, and match it against the funding data to identify recipients whose public record should concern a funder.
+​Hackathon Information for Vendors
+
+​Purpose: To provide context on the event and outline how vendors can participate and prepare.
+
+​Event Overview
+
+​This is a national, invite-only AI hackathon hosted by the Government of Alberta, focused on practical applications of AI in government delivery and accountability
+
+​The event will run as two parallel experiences:
+
+    ​Hackathon teams building solutions in real time
+
+    ​Live industry demos and presentations for attendees
+
+​Industry demos and hacking will occur simultaneously, with participants and senior officials moving between both
+​Audience
+
+​The event will include:
+
+    ​Federal and provincial government leaders (including Ministers and Deputy Ministers)
+
+    ​Senior public sector officials
+
+    ​Academic participants and students
+
+    ​Industry representatives
+
+​Demos should therefore be accessible, practical, and relevant to public-sector use cases
+
+​Expectations for Demos
+
+    ​Focus on applied, hands-on use of AI, particularly agentic or autonomous systems
+
+    ​Demonstrate how your technology can help governments:
+
+        ​Analyze data
+
+        ​Improve decision-making
+
+        ​Identify inefficiencies or outcomes
+
+​Design demos to be:
+
+    ​Interactive and engaging
+
+    ​Easy to understand in a short timeframe
+
+    ​Relevant to real-world government challenges
+
+​Note: This is not a traditional showcase. The emphasis is on collaboration and experimentation, not polished sales presentations.
+​Vendor Role: Supporting the Hackathon
+
+​We are looking for vendors who can contribute to the hackathon environment by enabling participants to build and test solutions in real time.
+
+​This may include:
+
+    ​Providing APIs, datasets, or AI models that participants can access and use
+
+    ​Offering platforms or development environments (e.g., cloud, agent frameworks, orchestration tools) to support rapid prototyping
+
+    ​Supplying pre-built applications, accelerators, or starter kits that teams can build on or extend
+
+    ​Making available sandbox environments, credits, or pre-configured access to reduce setup time
+
+    ​Offering technical support or subject-matter guidance to teams using your tools
+
+​Vendors should ensure their tools and services are:
+
+    ​Easy to access and use within a one-day hackathon
+
+    ​Low-friction to onboard
+
+    ​Relevant to real-world problem solving
