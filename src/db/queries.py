@@ -772,6 +772,83 @@ def fetch_shared_director_funding_pairs(min_total_amount: float = 50_000) -> pl.
     return _query(query, {"min_amount": min_total_amount})
 
 
+def fetch_govt_funding_layer(entity_ids: list[int]) -> pl.DataFrame:
+    """Federal funder nodes for a set of entities — owner_org → entity edges."""
+    ids = [int(e) for e in entity_ids if e is not None]
+    if not ids:
+        return pl.DataFrame()
+    query = f"""
+        SELECT
+            gc.owner_org AS govt_org,
+            esl.entity_id,
+            SUM(gc.agreement_value)::float AS total_amount,
+            CASE WHEN gc.agreement_type = 'C' THEN 'fed_contribution' ELSE 'fed_grant' END AS source
+        FROM general.entity_source_links esl
+        JOIN {_fed_grants_relation()} gc ON gc._id = (esl.source_pk ->> '_id')::int
+        WHERE esl.entity_id = ANY(%(ids)s)
+          AND esl.source_schema = 'fed'
+          AND esl.source_table = 'grants_contributions'
+          AND gc.agreement_value > 0
+          AND gc.owner_org IS NOT NULL
+        GROUP BY gc.owner_org, esl.entity_id,
+                 CASE WHEN gc.agreement_type = 'C' THEN 'fed_contribution' ELSE 'fed_grant' END
+        ORDER BY total_amount DESC
+        LIMIT 200
+    """
+    return _query(query, {"ids": ids})
+
+
+def fetch_contractor_layer(entity_ids: list[int]) -> pl.DataFrame:
+    """Alberta contract and sole-source recipient links for a set of entities."""
+    ids = [int(e) for e in entity_ids if e is not None]
+    if not ids:
+        return pl.DataFrame()
+    frames = [
+        _query(
+            """
+            SELECT
+                esl.entity_id,
+                c.supplier AS contractor_name,
+                SUM(c.amount)::float AS total_amount,
+                'ab_contract' AS source
+            FROM general.entity_source_links esl
+            JOIN ab.ab_contracts c ON c.id = (esl.source_pk ->> 'id')::uuid
+            WHERE esl.entity_id = ANY(%(ids)s)
+              AND esl.source_schema = 'ab'
+              AND esl.source_table = 'ab_contracts'
+              AND c.amount > 0
+              AND c.supplier IS NOT NULL
+            GROUP BY esl.entity_id, c.supplier
+            ORDER BY total_amount DESC
+            LIMIT 100
+            """,
+            {"ids": ids},
+        ),
+        _query(
+            """
+            SELECT
+                esl.entity_id,
+                ss.vendor AS contractor_name,
+                SUM(ss.amount)::float AS total_amount,
+                'ab_sole_source' AS source
+            FROM general.entity_source_links esl
+            JOIN ab.ab_sole_source ss ON ss.id = (esl.source_pk ->> 'id')::uuid
+            WHERE esl.entity_id = ANY(%(ids)s)
+              AND esl.source_schema = 'ab'
+              AND esl.source_table = 'ab_sole_source'
+              AND ss.amount > 0
+              AND ss.vendor IS NOT NULL
+            GROUP BY esl.entity_id, ss.vendor
+            ORDER BY total_amount DESC
+            LIMIT 100
+            """,
+            {"ids": ids},
+        ),
+    ]
+    frames = [f for f in frames if not f.is_empty()]
+    return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
+
+
 def row_to_jsonable(row: Any) -> Any:
     if isinstance(row, (dict, list, tuple, str, int, float, bool)) or row is None:
         return row

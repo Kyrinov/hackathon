@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html401/loose.dtd">
+
+
+<html lang="en">
+
+<head>
+
+    <!-- META DATA MUST BE UPDATED EVERY TIME A PAGE IS POSTED. -->
+    <META CHARSET="UTF-8">
+    <META NAME="DC.Title"
+        CONTENT="Commissariat à la protection de la vie privée du Canada / Office of the Privacy Commissioner of Canada - Erreur / Error">
+    <META NAME="Title"
+        CONTENT="Commissariat à la protection de la vie privée du Canada / Office of the Privacy Commissioner of Canada - Erreur / Error">
+    <META NAME="DC.Creator"
+        CONTENT="TCommissariat à la protection de la vie privée du Canada / Office of the Privacy Commissioner of Canada; Applications">
+    <META NAME="DC.Language" CONTENT="fre">
+    <meta name="DC.Date.Created" content="2020-04-06">
+    <meta name="DC.Date.Modified" content="2020-04-06">
+    <meta name="DC.Date.Valid" content="2020-04-06">
+    <META NAME="DC.Subject"
+        CONTENT="Commissariat à la protection de la vie privée du Canada / Office of the Privacy Commissioner of Canada - Erreur / Error">
+    <META NAME="Keywords" CONTENT="Error; Erreur">
+    <META NAME="DC.Description"
+        CONTENT="Commissariat à la protection de la vie privée du Canada / Office of the Privacy Commissioner of Canada - Erreur / Error">
+    <META NAME="Description"
+        CONTENT="Commissariat à la protection de la vie privée du Canada / Office of the Privacy Commissioner of Canada - Erreur / Error">
+    <title>Commissariat à la protection de la vie privée du Canada / Office of the Privacy Commissioner of Canada -
+        Erreur / Error</title>
+    <!-- Web Experience Toolkit (WET) / Boîte à outils de l'expérience Web (BOEW)
+    wet-boew.github.io/wet-boew/License-en.html / wet-boew.github.io/wet-boew/Licence-fr.html -->
+    <meta content="width=device-width,initial-scale=1" name="viewport">
+    <!-- Meta data -->
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <!-- Meta data-->
+    <!--[if gte IE 9 | !IE ]><!-->
+    <link href="https://priv.gc.ca/wet/gcweb-opc/assets/favicon.ico" rel="icon" type="image/x-icon">
+    <link rel="stylesheet" href="https://priv.gc.ca/wet/gcweb-opc/css/theme-srv.min.css">
+    <!--<![endif]-->
+    <!--[if lt IE 9]>
+    <link href="https://priv.gc.ca/wet/gcweb-opc/assets/favicon.ico" rel="shortcut icon" />
+    <link rel="stylesheet" href="https://priv.gc.ca/wet/gcweb-opc/css/ie8-theme-srv.min.css" />
+    <script src="https://priv.gc.ca/wet/wet-boew/js/jquery/1.11.1/jquery.min.js"></script>
+    <script src="https://priv.gc.ca/wet/wet-boew/js/ie8-wet-boew.min.js"></script>
+    <![endif]-->
+    <noscript>
+        <link rel="stylesheet" href="https://priv.gc.ca/wet/wet-boew/css/noscript.min.css" /></noscript>
+</head>
+
+<body vocab="http://schema.org/" typeof="WebPage">
+    <header role="banner" id="wb-bnr" class="container">
+        <div class="row">
+            <div class="col-sm-6">
+                <img id="opc-sig" style="width:455px;" src="https://priv.gc.ca/wet/gcweb-opc/assets/opc-blk-fr.png"
+                    class="hidden-print"
+                    alt="Commissariat à la protection de la vie privée du Canada / Office of the Privacy Commissioner" />
+                <span class="wb-inv">Commissariat à la protection de la vie privée du Canada / Office of the Privacy
+                    Commissioner of Canada</span>
+            </div>
+        </div>
+    </header>
+    <main role="main" property="mainContentOfPage" class="container">
+        <div class="row mrgn-tp-lg">
+            <section class="col-md-6" lang="fr">
+                <h1><span class="glyphicon glyphicon-warning-sign mrgn-rght-md"></span>Erreur de serveur interne</h1>
+                <p>
+                    Le serveur Web n'est pas en mesure de traiter la requête. Veuillez réessayer ultérieurement.
+                    Si le problème persiste, veuillez contacter l'administrateur du serveur Web avec l'information qui suit:
+                </p>
+                <ul>
+                    <li>Numéro d'identification de l'évènement: 110000003</li>
+                    <li>Type d'évènement: signature</li>
+                </ul>
+                <p>Voici quelques liens qui peuvent vous aider :</p>
+                <ul>
+                    <li><a href="https://priv.gc.ca/fr/">Page d'accueil</a></li>
+                    <li><a href="https://priv.gc.ca/fr/communiquer-avec-le-commissariat/">Communiquez avec
+                            nous</a></li>
+                    <li><a href="https://priv.gc.ca/fr/recherche/">Page de recherche</a></li>
+                </ul>
+            </section>
+            <section class="col-md-6">
+                <h1><span class="glyphicon glyphicon-warning-sign mrgn-rght-md"></span>Internal server error</h1>
+                <p>
+                    The Web server is incapable of performing the request. Please try your request again later. Please
+                    contact the Web server's administrator with the following information if this problem persists:
+                </p>
+                <ul>
+                    <li>Event ID: 110000003</li>
+                    <li>Event Type: signature</li>
+                </ul>
+                <p>Here are some links that can help you:</p>
+                <ul>
+                    <li><a href="https://priv.gc.ca/en/">Home page</a></li>
+                    <li><a href="https://priv.gc.ca/en/contact-the-opc/">Contact us</a></li>
+                    <li><a href="https://priv.gc.ca/en/search/">Search page</a></li>
+                </ul>
+            </section>
+        </div>
+    </main>
+</body>
+
+</html>

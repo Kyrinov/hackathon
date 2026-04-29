@@ -148,7 +148,13 @@ def fetch_shared_directors_bulk(entity_ids: list[int]) -> dict[int, list[str]]:
     return out
 
 
-def main() -> int:
+def main(recency_boosts: dict[str, float] | None = None) -> int:
+    """Build the ring cache.
+
+    recency_boosts: {ring_id: max_new_amount} from the weekly watcher cycle.
+    Rings present in this dict get a +0.15 composite score boost and a
+    "Recently confirmed in public data" flag so they surface near the top.
+    """
     CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     print("[prewarm] fetching all CRA cycles ...")
@@ -224,9 +230,20 @@ def main() -> int:
             score += 0.3
         score = min(score, 1.0)
 
+        ring_id = f"cra-cycle-{row['cycle_id']}"
+        recency_boost = float((recency_boosts or {}).get(ring_id, 0.0))
+        if recency_boost:
+            score = min(score + 0.15, 1.0)
+
+        flags = ["Round-trip funding (CRA-confirmed)"]
+        if shared:
+            flags.append("Shared directorship across multiple funded entities")
+        if recency_boost:
+            flags.append(f"Recently confirmed in public data (${recency_boost:,.0f})")
+
         ring_edges = edge_map.get(int(row["cycle_id"]), [])
         rings.append({
-            "ring_id": f"cra-cycle-{row['cycle_id']}",
+            "ring_id": ring_id,
             "ring_type": "round_trip",
             "entity_ids": [str(e) for e in entity_ids],
             "canonical_names": canonical_names,
@@ -249,10 +266,7 @@ def main() -> int:
             "total_amount": amount,
             "total_score": score,
             "datasets_touched": ["cra"],
-            "flags": (
-                ["Round-trip funding (CRA-confirmed)", "Shared directorship across multiple funded entities"]
-                if shared else ["Round-trip funding (CRA-confirmed)"]
-            ),
+            "flags": flags,
         })
 
     # --- Pass 1: deterministic composite score on every ring ---

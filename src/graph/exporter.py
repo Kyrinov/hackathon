@@ -7,12 +7,14 @@ import polars as pl
 
 
 NODE_COLORS = {
-    "person": "#60a5fa",
-    "charity": "#fbbf24",
+    "person": "#60a5fa",      # blue — director nodes
+    "charity": "#fbbf24",     # amber — CRA entities
     "organization": "#fbbf24",
     "business": "#4ade80",
     "company": "#4ade80",
-    "gov": "#f87171",
+    "gov": "#f87171",         # red — generic gov
+    "fed_govt": "#34d399",    # emerald — federal funder layer
+    "contractor": "#fb923c",  # orange — AB contractor layer
     "unknown": "#94a3b8",
 }
 
