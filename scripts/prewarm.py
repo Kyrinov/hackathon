@@ -51,6 +51,75 @@ def fetch_top_cycles(limit: int = 30) -> pl.DataFrame:
     return pl.DataFrame(list(rows)) if rows else pl.DataFrame()
 
 
+def fetch_cycle_edges_bulk(cycle_ids: list[int]) -> dict[int, list[dict]]:
+    """One query: directed CRA gift edges for every cycle in the list.
+
+    Returns {cycle_id: [edge, edge, ...]}. Each edge has from_entity_id /
+    to_entity_id (resolved through entity_golden_records.bn_root) plus
+    amount and source_row_id, matching the shape that _ring_graph()
+    expects so the cloud demo can render the graph from cache alone.
+    """
+    if not cycle_ids:
+        return {}
+    sql = """
+        WITH loop_pairs AS (
+            SELECT
+                l.id AS cycle_id,
+                u.ord::int AS edge_order,
+                left(u.bn, 9) AS src_bn,
+                left(COALESCE(l.path_bns[u.ord::int + 1], l.path_bns[1]), 9) AS dst_bn
+            FROM cra.loops l
+            CROSS JOIN LATERAL unnest(l.path_bns) WITH ORDINALITY AS u(bn, ord)
+            WHERE l.id = ANY(%(ids)s)
+        ),
+        edge_amounts AS (
+            -- aggregate cra.loop_edges in case of multiple rows per pair
+            SELECT
+                left(src, 9) AS src_bn,
+                left(dst, 9) AS dst_bn,
+                SUM(COALESCE(total_amt, 0))::float AS amount,
+                MAX(max_year)::text AS year
+            FROM cra.loop_edges
+            GROUP BY 1, 2
+        )
+        SELECT DISTINCT ON (lp.cycle_id, lp.edge_order)
+            lp.cycle_id,
+            lp.edge_order,
+            src.id AS from_entity_id,
+            dst.id AS to_entity_id,
+            COALESCE(ea.amount, 0)::float AS amount,
+            COALESCE(ea.year, '') AS date,
+            concat_ws('|', lp.cycle_id::text, lp.edge_order::text) AS source_row_id
+        FROM loop_pairs lp
+        JOIN general.entity_golden_records src
+          ON src.bn_root = lp.src_bn AND src.status = 'active'
+        JOIN general.entity_golden_records dst
+          ON dst.bn_root = lp.dst_bn AND dst.status = 'active'
+        LEFT JOIN edge_amounts ea
+          ON ea.src_bn = lp.src_bn AND ea.dst_bn = lp.dst_bn
+        ORDER BY lp.cycle_id, lp.edge_order, src.id, dst.id
+    """
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(sql, {"ids": [int(c) for c in cycle_ids]})
+        rows = cur.fetchall()
+
+    out: dict[int, list[dict]] = {}
+    for row in rows:
+        cid = int(row["cycle_id"])
+        out.setdefault(cid, []).append({
+            "from_entity_id": str(row["from_entity_id"]),
+            "to_entity_id": str(row["to_entity_id"]),
+            "amount": float(row.get("amount") or 0.0),
+            "date": str(row.get("date") or ""),
+            "source": "cra_gift",
+            "source_row_id": str(row.get("source_row_id") or ""),
+            "mapping_method": "authoritative",
+            "confidence_score": 1.0,
+        })
+    return out
+
+
 def fetch_shared_directors_bulk(entity_ids: list[int]) -> dict[int, list[str]]:
     """Map each entity_id to its normalized director names — one query."""
     if not entity_ids:
@@ -105,6 +174,12 @@ def main() -> int:
     director_map = fetch_shared_directors_bulk(all_entity_ids)
     print(f"[prewarm] directors fetched in {time.time() - t:.1f}s")
 
+    cycle_id_ints = [int(row["cycle_id"]) for row in cycles_df.iter_rows(named=True)]
+    t = time.time()
+    edge_map = fetch_cycle_edges_bulk(cycle_id_ints)
+    edge_total = sum(len(v) for v in edge_map.values())
+    print(f"[prewarm] {edge_total} cycle edges fetched in {time.time() - t:.1f}s")
+
     # Filter out big-name national institutions that produce noisy cycles.
     KNOWN_NATIONAL = {
         "salvation army", "red cross", "united way", "toronto foundation",
@@ -147,14 +222,23 @@ def main() -> int:
             score += 0.3
         score = min(score, 1.0)
 
+        ring_edges = edge_map.get(int(row["cycle_id"]), [])
         rings.append({
             "ring_id": f"cra-cycle-{row['cycle_id']}",
             "ring_type": "round_trip",
             "entity_ids": [str(e) for e in entity_ids],
             "canonical_names": canonical_names,
             "shared_persons": shared,
-            "funding_edges": [],
-            "evidence": [{
+            "funding_edges": ring_edges,
+            "evidence": [
+                {
+                    "source": "cra_gift",
+                    "source_row_id": e.get("source_row_id"),
+                    "mapping_method": "authoritative",
+                    "confidence_score": 1.0,
+                }
+                for e in ring_edges
+            ] or [{
                 "source": "cra_gift",
                 "source_row_id": row["cycle_id"],
                 "mapping_method": "authoritative",
