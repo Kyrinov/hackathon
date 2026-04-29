@@ -1,8 +1,18 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Make the repo root importable so `from app...` and `from src...` resolve
+# when Streamlit Cloud invokes this file directly (it sets cwd to the repo
+# root but does not add it to sys.path). Locally `PYTHONPATH=.` does the
+# same job. Idempotent — safe to run twice.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 import json
 import sqlite3
-from pathlib import Path
 from typing import Any
 
 import networkx as nx
