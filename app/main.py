@@ -12,7 +12,6 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 import json
-import sqlite3
 from typing import Any
 
 import networkx as nx
@@ -29,6 +28,7 @@ from src.db.queries import (
     fetch_entities_by_ids,
     fetch_entity_source_summary,
     fetch_evidence_for_edge,
+    fetch_govt_funding_layer,
 )
 from src.agents.risk_scorer import RISK_BADGE
 from src.graph.builder import build_cra_cycle_graph, build_full_ring_graph
@@ -110,24 +110,6 @@ def _load_live_rings() -> list[dict]:
     return top_rings(10_000)
 
 
-def _load_agent_state() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    db = Path("data/agent_state.db")
-    if not db.exists():
-        return [], []
-    with sqlite3.connect(str(db)) as conn:
-        conn.row_factory = sqlite3.Row
-        findings = [
-            dict(row)
-            for row in conn.execute(
-                "SELECT id, created_at, source, finding_type, ring_id, "
-                "trigger_external_id, narrative, total_amount, severity, entity_ids "
-                "FROM findings ORDER BY created_at DESC"
-            )
-        ]
-        sources = [dict(row) for row in conn.execute("SELECT name, last_run_at, rows_fetched_total FROM sources")]
-    return findings, sources
-
-
 def _probability_band(probability: float) -> str:
     if probability >= 0.97:
         return "Likely same (>=0.97)"
@@ -205,26 +187,6 @@ def _render_splink_review() -> None:
                         reviewed_by="streamlit",
                     )
                     st.rerun()
-
-
-def _severity_rank(finding: dict[str, Any]) -> int:
-    return {"urgent": 0, "review": 1, "info": 2}.get(str(finding.get("severity") or ""), 3)
-
-
-def _default_finding_index(findings: list[dict[str, Any]]) -> int:
-    if not findings:
-        return 0
-    best_rank = min(_severity_rank(finding) for finding in findings)
-    candidates = [idx for idx, finding in enumerate(findings) if _severity_rank(finding) == best_rank]
-    return max(candidates, key=lambda idx: str(findings[idx].get("created_at") or ""))
-
-
-def _entity_ids_from_finding(finding: dict[str, Any]) -> list[str]:
-    try:
-        raw_ids = json.loads(finding.get("entity_ids") or "[]")
-    except (TypeError, json.JSONDecodeError):
-        raw_ids = []
-    return [str(entity_id) for entity_id in raw_ids if entity_id not in (None, "")]
 
 
 def _crossover_graph(row: dict[str, Any]) -> nx.MultiDiGraph:
@@ -358,105 +320,6 @@ def _crossover_graph(row: dict[str, Any]) -> nx.MultiDiGraph:
         )
 
     return graph
-
-
-def _ring_lookup_from_cache() -> dict[str, dict[str, Any]]:
-    """Build a ring_id → ring dict map from the prewarm cache.
-
-    Used to enrich agent-finding labels and ring payloads with entity
-    canonical names without hitting the live DB.
-    """
-    try:
-        rings = _load_live_rings()
-    except Exception:
-        return {}
-    return {str(r.get("ring_id")): r for r in rings if r.get("ring_id")}
-
-
-_SOURCE_LABELS = {
-    "cra_donees": "CRA T1236 donees",
-    "cra_t3010": "CRA T3010 directors",
-    "fed_grants": "Federal grants",
-}
-
-
-def _finding_label(finding: dict[str, Any], ring_lookup: dict[str, dict[str, Any]] | None = None) -> str:
-    """Human-readable label for a live agent finding.
-
-    Includes the trigger source, dollar amount, and the names of the
-    entities in the linked ring (looked up from the prewarm cache when
-    available). Falls back gracefully if the ring is not cached.
-    """
-    amount = finding.get("total_amount")
-    amount_s = f"${amount:,.0f}" if amount else "—"
-    severity = (finding.get("severity") or "info").lower()
-    badge = {"urgent": "🔴", "review": "🟡", "info": "🔵"}.get(severity, "⚪")
-    source = _SOURCE_LABELS.get(finding.get("source"), finding.get("source") or "source")
-
-    names: list[str] = []
-    if ring_lookup is not None:
-        ring = ring_lookup.get(str(finding.get("ring_id") or ""))
-        if ring:
-            names = [str(n) for n in (ring.get("canonical_names") or []) if n]
-    if not names:
-        # Fallback to the entity IDs the agent recorded.
-        names = [f"Entity {eid}" for eid in _entity_ids_from_finding(finding)[:3]]
-
-    name_preview = ", ".join(names[:2])
-    if len(names) > 2:
-        name_preview += f" (+{len(names) - 2} more)"
-    if not name_preview:
-        name_preview = finding.get("ring_id") or "unknown ring"
-
-    return f"{badge} {source} · {amount_s} · {name_preview}"
-
-
-def _ring_from_finding(
-    finding: dict[str, Any],
-    ring_lookup: dict[str, dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    """Derive a ring payload from a live finding.
-
-    When the finding's ring_id is present in the prewarm cache, we copy
-    the cached canonical_names and shared_persons so the live tab's
-    visualization is properly labelled. Otherwise we fall back to a
-    minimal placeholder ring.
-    """
-    entity_ids = _entity_ids_from_finding(finding)
-    cached = (
-        (ring_lookup or {}).get(str(finding.get("ring_id") or "")) if ring_lookup else None
-    )
-    if cached:
-        canonical_names = list(cached.get("canonical_names") or [])
-        shared_persons = list(cached.get("shared_persons") or [])
-        # Use the cached entity_ids (already aligned with names) when present.
-        cached_ids = [str(e) for e in (cached.get("entity_ids") or [])]
-        if cached_ids:
-            entity_ids = cached_ids
-    else:
-        canonical_names = [f"Entity {entity_id}" for entity_id in entity_ids]
-        shared_persons = []
-
-    return {
-        "ring_id": finding.get("ring_id") or f"finding-{finding.get('id')}",
-        "ring_type": cached.get("ring_type") if cached else None,
-        "entity_ids": entity_ids,
-        "canonical_names": canonical_names,
-        "shared_persons": shared_persons,
-        "funding_edges": cached.get("funding_edges", []) if cached else [],
-        "evidence": [
-            {
-                "source": finding.get("source"),
-                "source_row_id": finding.get("trigger_external_id"),
-                "mapping_method": "agent_resolved",
-                "confidence_score": 1.0,
-            }
-        ],
-        "total_amount": float(finding.get("total_amount") or 0.0),
-        "datasets_touched": [finding.get("source") or "agent"],
-        "flags": [finding.get("finding_type") or "agent_finding"],
-        "narrative": finding.get("narrative") or "",
-    }
 
 
 def _load() -> tuple[nx.MultiDiGraph, list[dict], bool]:
@@ -875,6 +738,93 @@ def _ring_type(ring: dict[str, Any]) -> str:
     return "other"
 
 
+def _apply_layers(
+    base_graph: nx.MultiDiGraph,
+    ring: dict[str, Any],
+    layers: dict[str, bool],
+    demo_mode: bool,
+) -> nx.MultiDiGraph:
+    """Return a copy of base_graph with optional relationship layers overlaid."""
+    g = base_graph.copy()
+
+    # Entity flows layer: remove CRA gift edges when unchecked
+    if not layers.get("entity", True):
+        remove = [
+            (u, v, k)
+            for u, v, k, d in g.edges(keys=True, data=True)
+            if d.get("source") in {"cra_gift"}
+        ]
+        g.remove_edges_from(remove)
+
+    # Director network layer: person nodes from cached shared_persons
+    if layers.get("directors"):
+        ring_entity_ids = {str(e) for e in ring.get("entity_ids", [])}
+        for person in ring.get("shared_persons") or []:
+            if not person:
+                continue
+            pid = f"person:{person}"
+            if pid not in g.nodes:
+                g.add_node(
+                    pid,
+                    entity_id=pid,
+                    canonical_name=str(person),
+                    entity_type="person",
+                    type="person",
+                    datasets=["cra"],
+                    aliases=[],
+                    total_score=0.0,
+                    flags=["Shared director"],
+                )
+            for eid in ring_entity_ids:
+                if eid in g.nodes:
+                    g.add_edge(
+                        pid, eid,
+                        source="cra_director",
+                        amount=0.0, date="",
+                        mapping_method="authoritative",
+                        confidence_score=1.0,
+                        source_row_id="",
+                    )
+
+    # Government funding layer: federal department → entity edges
+    if layers.get("govt") and not demo_mode:
+        int_ids = [int(e) for e in ring.get("entity_ids", []) if str(e).isdigit()]
+        try:
+            govt_df = fetch_govt_funding_layer(int_ids) if int_ids else pl.DataFrame()
+        except Exception:
+            govt_df = pl.DataFrame()
+        for row in govt_df.iter_rows(named=True):
+            org = str(row.get("govt_org") or "").strip()
+            if not org:
+                continue
+            node_id = f"fed:{org}"
+            if node_id not in g.nodes:
+                g.add_node(
+                    node_id,
+                    entity_id=node_id,
+                    canonical_name=org,
+                    entity_type="fed_govt",
+                    type="fed_govt",
+                    datasets=["fed"],
+                    aliases=[],
+                    total_score=0.0,
+                    flags=["Federal funder"],
+                )
+            target = str(int(row["entity_id"]))
+            if target in g.nodes:
+                g.add_edge(
+                    node_id, target,
+                    source=str(row.get("source") or "fed_grant"),
+                    amount=float(row.get("total_amount") or 0.0),
+                    date="",
+                    mapping_method="authoritative",
+                    confidence_score=1.0,
+                    source_row_id="",
+                )
+
+    return g
+
+
 def _render_ring_panel(
     ring: dict[str, Any],
     graph: nx.MultiDiGraph,
@@ -919,14 +869,47 @@ def _render_ring_panel(
             if assessment.get("summary"):
                 st.markdown(assessment["summary"])
 
+    # ---- Layer toggles ----
+    st.markdown(
+        "<div style='margin:10px 0 6px; color:#94a3b8; font-size:0.8rem; "
+        "font-weight:600; text-transform:uppercase; letter-spacing:0.06em;'>"
+        "Graph layers</div>",
+        unsafe_allow_html=True,
+    )
+    toggle_cols = st.columns(3)
+    layer_entity = toggle_cols[0].checkbox(
+        "Entity flows",
+        value=True,
+        key=f"{key_prefix}-layer-entity",
+        help="Directed CRA funding edges between ring entities (on by default)",
+    )
+    layer_govt = toggle_cols[1].checkbox(
+        "Government funding",
+        value=False,
+        key=f"{key_prefix}-layer-govt",
+        help="Add federal department nodes + grant edges from fed.grants_contributions",
+    )
+    layer_directors = toggle_cols[2].checkbox(
+        "Director network",
+        value=False,
+        key=f"{key_prefix}-layer-directors",
+        help="Add person nodes for shared directors linking entity nodes (blue)",
+    )
+    layers = {
+        "entity": layer_entity,
+        "govt": layer_govt,
+        "directors": layer_directors,
+    }
+    display_graph = _apply_layers(graph, ring, layers, demo_mode)
+
     left, right = st.columns([0.6, 0.4], gap="large")
     with left:
-        html(_network_html(graph, ring, threshold), height=620)
+        html(_network_html(display_graph, ring, threshold), height=620)
 
     entity_options = {
         attrs.get("canonical_name", node_id): node_id
-        for node_id, attrs in graph.nodes(data=True)
-        if attrs.get("entity_type") != "gov"
+        for node_id, attrs in display_graph.nodes(data=True)
+        if attrs.get("entity_type") not in {"gov", "fed_govt"}
     }
     with right:
         if not entity_options:
@@ -938,7 +921,7 @@ def _render_ring_panel(
                 key=f"{key_prefix}-entity",
             )
             selected_entity = entity_options[selected_entity_label]
-            attrs = graph.nodes[selected_entity]
+            attrs = display_graph.nodes[selected_entity]
             st.markdown(f"**{attrs.get('canonical_name', selected_entity)}**")
 
             cols = st.columns(3)
@@ -957,7 +940,7 @@ def _render_ring_panel(
                 for flag in flags:
                     st.info(flag, icon="🚩")
 
-            evidence = to_evidence_table(graph, selected_entity)
+            evidence = to_evidence_table(display_graph, selected_entity)
             if not evidence.is_empty():
                 st.markdown("**Evidence**")
                 st.dataframe(evidence, width="stretch", hide_index=True)
@@ -967,8 +950,8 @@ def _render_ring_panel(
 
     st.markdown("#### Top flagged entities in this case")
     rows = []
-    for node_id, attrs in graph.nodes(data=True):
-        if attrs.get("entity_type") == "person":
+    for node_id, attrs in display_graph.nodes(data=True):
+        if attrs.get("entity_type") in {"person", "fed_govt", "contractor"}:
             continue
         rows.append(
             {
@@ -1193,65 +1176,6 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    findings, sources = _load_agent_state()
-    selected_finding: dict[str, Any] | None = None
-    ring_lookup: dict[str, dict[str, Any]] = {}
-
-    # ---- Live findings summary panel ----
-    if findings:
-        urgent = sum(1 for finding in findings if finding.get("severity") == "urgent")
-        active_sources = {source.get("name") for source in sources if source.get("last_run_at")}
-        last_seen = max((source.get("last_run_at") or "" for source in sources), default="—")
-
-        st.markdown("##### Live agent fleet status")
-        head_cols = st.columns([0.18, 0.18, 0.18, 0.46])
-        head_cols[0].metric("Live findings", len(findings))
-        head_cols[1].metric("Urgent", urgent)
-        head_cols[2].metric("Sources", len(active_sources))
-        head_cols[3].metric("Last fetch", last_seen[-8:] if last_seen else "—")
-
-        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-
-        # Build the ring lookup once here so tab (d) can label its finding
-        # selector with entity names. The selector itself now lives inside
-        # tab (d) — keeping it out of the top strip so the four pattern
-        # tabs are the obvious primary nav.
-        ring_lookup = _ring_lookup_from_cache()
-
-        with st.expander(
-            f"Recent agent findings · showing 5 of {len(findings)}",
-            expanded=False,
-        ):
-            st.caption(
-                "Agent fleet polls open.canada.ca (FED Grants & Contributions, CRA "
-                "T3010 directors, CRA Qualified Donees) and surfaces new "
-                "disbursements connected to existing CRA-detected funding rings. "
-                "All evidence traces to public records."
-            )
-            for finding in findings:
-                severity = finding.get("severity")
-                badge = {"urgent": "🔴", "review": "🟡", "info": "🔵"}.get(severity, "⚪")
-                timestamp = (finding.get("created_at") or "")[:19].replace("T", " ")
-                total_amount = finding.get("total_amount")
-                amount_s = f"${total_amount:,.0f}" if total_amount else "—"
-                ring_id = finding.get("ring_id") or "—"
-                ring_meta = ring_lookup.get(ring_id, {})
-                names = ring_meta.get("canonical_names") or []
-                ring_label = ", ".join(names[:3]) + (" …" if len(names) > 3 else "") if names else ring_id
-                with st.container(border=True):
-                    row = st.columns([0.08, 0.50, 0.20, 0.22])
-                    row[0].markdown(f"**{badge}**")
-                    row[1].markdown(
-                        f"**{finding.get('source') or '—'}** → {ring_label}"
-                    )
-                    row[2].markdown(f"`{finding.get('finding_type') or '—'}`")
-                    row[3].markdown(f"**{amount_s}**  ·  {timestamp or '—'}")
-                    st.markdown(
-                        f"<small style='color:#94a3b8'>{finding.get('narrative') or ''}</small>",
-                        unsafe_allow_html=True,
-                    )
-        st.markdown("---")
-
     _render_splink_review()
 
     with st.sidebar:
@@ -1274,8 +1198,9 @@ def main() -> None:
             "**Patterns:** Round-trip · Shared director · Crossover",
             help="Detection algorithms running against the ingested data",
         )
-        last_run = max((source.get("last_run_at") or "" for source in sources), default="—")
-        st.markdown(f"**Last fetch:** `{last_run if last_run else '—'}`")
+        st.markdown(
+            "**Refresh:** Weekly — new open.canada.ca data scored and committed automatically.",
+        )
         st.markdown(
             "<p style='font-size:0.78rem; color:#64748b; margin-top:1.2rem; "
             "line-height:1.4;'>"
@@ -1285,12 +1210,6 @@ def main() -> None:
             unsafe_allow_html=True,
         )
 
-    # `show_featured` legacy variable — the live finding now lives in tab (d),
-    # so we always render the four pattern tabs and surface the selected
-    # finding there. Kept as False for backwards compatibility with the
-    # tab-label expression below.
-    show_featured = False
-
     _, rings, demo_mode = _load()
     if demo_mode:
         st.warning(
@@ -1298,27 +1217,14 @@ def main() -> None:
             icon="⚠️",
         )
 
-    # Round-trip tab: any CRA-cycle ring (the strongest single signal).
-    # Shared-director tab: any ring whose participants share at least one
-    # T3010 director name. The two sets overlap intentionally — a CRA
-    # cycle WITH a shared director is exactly the case we want to surface
-    # in both views.
     rings_round = [r for r in rings if _ring_type(r) == "round_trip"]
     rings_shared = [r for r in rings if r.get("shared_persons")]
 
-    live_count = len(findings) if findings else 0
-    live_label = (
-        f"(d) Live findings ({live_count})"
-        if live_count
-        else "(d) Live findings"
-    )
-
-    tab_round, tab_shared, tab_cross, tab_live = st.tabs(
+    tab_round, tab_shared, tab_cross = st.tabs(
         [
             f"(a) Round-trip rings ({len(rings_round)})",
             f"(b) Shared-director networks ({len(rings_shared)})",
             "(c) Contractor / charity-director crossover",
-            live_label,
         ]
     )
 
@@ -1456,46 +1362,6 @@ def main() -> None:
                 "All matches are flagged for review. A shared director is "
                 "structural evidence; intent must be assessed by a human "
                 "with investigative authority."
-            )
-
-    with tab_live:
-        st.caption(
-            "Real-time findings from the agent fleet — public-record rows "
-            "(open.canada.ca) that resolved into a known funding ring. Pick "
-            "one to render its graph and evidence."
-        )
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-
-        if not findings:
-            st.info(
-                "No agent findings available. Run "
-                "`PYTHONPATH=. .venv/bin/python -m scripts.run_agents --once` "
-                "to seed the fleet.",
-                icon="💡",
-            )
-        else:
-            finding_by_label = {
-                _finding_label(finding, ring_lookup): finding
-                for finding in findings[:25]
-            }
-            selected_finding_label = st.selectbox(
-                "Live agent finding",
-                list(finding_by_label),
-                index=_default_finding_index(list(finding_by_label.values())),
-                key="live-finding-select",
-                help=(
-                    "Each row is an agent-discovered disbursement that links "
-                    "to a known ring. Format: severity badge · source · amount "
-                    "· entity names."
-                ),
-            )
-            tab_live_finding = finding_by_label[selected_finding_label]
-            ring = _ring_from_finding(tab_live_finding, ring_lookup)
-            graph = _graph_for_ring(ring, False)
-            if ring.get("narrative"):
-                st.markdown(f"**{ring['narrative']}**")
-            _render_ring_panel(
-                ring, graph, False, threshold, "live", tab_live_finding
             )
 
     st.markdown("---")
