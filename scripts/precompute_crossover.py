@@ -155,7 +155,7 @@ def _fetch_direct_gifts(pairs: list[tuple[int, int]]) -> dict[tuple[int, int], f
     }
 
 
-def fetch_crossover(min_grant: float, min_contract: float, limit: int) -> pl.DataFrame:
+def fetch_crossover(min_grant: float, min_contract: float) -> pl.DataFrame:
     """Three-step: contractor side first (small), then charity side filtered
     by names, then direct gift-flow check to find closed self-dealing loops."""
     print("[crossover] step 1: contractors with CRA directors ...")
@@ -187,7 +187,6 @@ def fetch_crossover(min_grant: float, min_contract: float, limit: int) -> pl.Dat
             pl.col("contract_source").max(),
         )
         .sort(["total_contract_amount", "total_grant_amount"], descending=True)
-        .head(limit)
     )
 
     # Step 3: flag pairs where the charity sent CRA gifts directly to the contractor
@@ -248,16 +247,15 @@ def main() -> int:
                         help="Minimum total federal grants to charity (default 25k)")
     parser.add_argument("--min-contract", type=float, default=10_000.0,
                         help="Minimum total Alberta contracts to contractor (default 10k)")
-    parser.add_argument("--limit", type=int, default=200)
     args = parser.parse_args()
 
     CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
     print(
         f"[crossover] grant >= ${args.min_grant:,.0f} ; "
-        f"contract >= ${args.min_contract:,.0f} ; limit {args.limit}"
+        f"contract >= ${args.min_contract:,.0f}"
     )
     t = time.time()
-    df = fetch_crossover(args.min_grant, args.min_contract, args.limit)
+    df = fetch_crossover(args.min_grant, args.min_contract)
     elapsed = time.time() - t
     print(f"[crossover] {len(df)} rows in {elapsed:.1f}s")
 
