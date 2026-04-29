@@ -814,9 +814,27 @@ def _score_for_node(node: dict[str, Any], ring: dict) -> float:
 
 
 def _evidence_detail(item: dict[str, Any], demo_mode: bool) -> dict:
+    """Return a JSON-serialisable evidence detail for a graph edge.
+
+    On cloud (no DATABASE_URL) the live DB lookup raises; we fall back to
+    the in-memory edge dict so the click-through panel still works.
+    """
     if demo_mode:
         return {"table_name": item.get("source"), "row": dict(item)}
-    return fetch_evidence_for_edge(item.get("source"), item.get("source_row_id"))
+    try:
+        result = fetch_evidence_for_edge(item.get("source"), item.get("source_row_id"))
+        if result:
+            return result
+    except Exception as exc:
+        return {
+            "table_name": item.get("source"),
+            "row": dict(item),
+            "note": (
+                "Live DB unavailable — showing cached edge data only. "
+                f"({type(exc).__name__})"
+            ),
+        }
+    return {"table_name": item.get("source"), "row": dict(item)}
 
 
 def _ring_type(ring: dict[str, Any]) -> str:
