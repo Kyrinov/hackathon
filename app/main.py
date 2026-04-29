@@ -319,6 +319,20 @@ def _crossover_graph(row: dict[str, Any]) -> nx.MultiDiGraph:
             source_row_id="",
         )
 
+    # Closed-loop: charity sent CRA gifts directly to the contractor
+    gift_amount = float(row.get("gift_to_contractor") or 0.0)
+    if gift_amount > 0:
+        graph.add_edge(
+            charity_id,
+            contractor_id,
+            source="cra_gift",
+            amount=gift_amount,
+            date="",
+            mapping_method="authoritative",
+            confidence_score=1.0,
+            source_row_id="",
+        )
+
     return graph
 
 
