@@ -15,8 +15,6 @@ data/staged/
 data/bronze/
 data/silver/
 data/gold/
-data/cache/
-*.parquet
 *.csv
 !tests/fixtures/**/*.csv
 
@@ -28,10 +26,16 @@ data/cache/
 # Hackathon-day artifacts and tooling state
 docs/internal/
 agency-26-hackathon/
-data/agent_state.db
 .claude/
 .claude-flow/
 .swarm/
 .planning/
 .streamlit/credentials.toml
 .codex
+
+# Note: data/cache/*.json, data/cache/*.parquet, and data/agent_state.db
+# are intentionally committed so Streamlit Cloud has cache + agent state
+# to render. Refresh locally with:
+#   python -m scripts.prewarm
+#   python -m scripts.precompute_crossover
+#   python -m scripts.run_agents --once
