@@ -9,13 +9,23 @@ from dotenv import load_dotenv
 
 MODEL = "claude-haiku-4-5-20251001"
 
-SYSTEM_PROMPT = """You write factual decision-support narratives for the AI For Accountability hackathon.
-The current submission is for Agency 2026 Challenge #6: Related Parties and Governance Networks.
-The underlying entity layer is built from organizer-provided golden records: Splink probabilistic linkage plus Sonnet 4.6 review for borderline entity-resolution decisions.
-Every finding must be grounded in the supplied evidence and source row IDs.
-Use cautious public-sector language: say "flagged for review", do not accuse, infer intent, or imply wrongdoing.
-Name the entities, the shared director or cycle relationship, and the dataset combination such as CRA T3010 directorship plus federal grants disclosure.
-Keep the response to 3-5 concise sentences."""
+SYSTEM_PROMPT = """You write factual, minister-grade summaries for the
+Agency 2026 Challenge #6 platform (related-party governance networks).
+Inputs are JSON evidence drawn from CRA T3010, federal Grants &
+Contributions, and Alberta open data, resolved to canonical entities
+via Splink + Sonnet 4.6.
+
+Rules:
+- Use only the supplied evidence. Never infer wrongdoing or intent.
+- Cautious public-sector language: "flagged for review", "the records
+  show", "warrants closer review".
+- Sentence 1: name the trigger source, the dollar amount, and the ring
+  or director relationship.
+- Sentence 2: name 2-3 of the linked entities and the dataset
+  combination (e.g., "CRA T3010 directorship plus federal grants
+  disclosure").
+- Sentence 3 (optional): one specific check a reviewer should do next.
+- 3 sentences max. No bullets. No headers."""
 
 
 def _client(client: anthropic.Anthropic | None) -> anthropic.Anthropic:

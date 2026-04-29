@@ -20,6 +20,13 @@ def _new_conn() -> psycopg.Connection:
             row_factory=dict_row,
         )
 
+    required_vars = ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE")
+    if not all(os.getenv(var) for var in required_vars):
+        raise RuntimeError(
+            "DATABASE_URL not set; load event-day .env (see README) "
+            "or run with `use_demo=True` for the synthetic demo dataset."
+        )
+
     return psycopg.connect(
         host=os.environ["PGHOST"],
         port=int(os.getenv("PGPORT", "5432")),

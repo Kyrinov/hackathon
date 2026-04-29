@@ -3,12 +3,12 @@
 Director-funding-pairs query is expensive against the live DB; running it
 once and caching the parquet keeps the demo fast and reproducible.
 
+Strategy: start from the *small* set of CRA gift pairs (~hundreds of
+thousands), then check which of those pairs share a normalized director
+name. This avoids the O(n^2) explosion in dir_entity self-join.
+
 Usage:
     PYTHONPATH=. .venv/bin/python -m scripts.precompute_rings
-
-Tunable knobs:
-    --min-amount     Minimum total CRA gift flow per pair (default 100_000).
-    --limit          Max director-pair rows to keep (default 200).
 """
 
 from __future__ import annotations
@@ -27,60 +27,61 @@ CACHE_DIR = Path("data/cache")
 
 
 def fetch_director_funding_pairs_fast(min_amount: float, limit: int) -> pl.DataFrame:
-    """Self-join + gift-pair join, rewritten with LEAST/GREATEST so the
-    qualifying-donee join can use a hash plan instead of the OR fallback
-    in queries.fetch_shared_director_funding_pairs."""
+    """Inverted join: gift pairs first, then check shared director.
+
+    The earlier query started from a director self-join (Cartesian) and
+    filtered down via gift_pairs. That blew up on common names. This
+    version drives off the gift-pair set (small) and asks "is there a
+    director shared between these two entities?" which is a hash join.
+    """
     sql = f"""
-        WITH dir_entity AS (
-            SELECT DISTINCT
-                {queries._DIRECTOR_NAME_NORMALIZED_SQL} AS director_name_normalized,
-                e.id AS entity_id,
-                e.bn_root
-            FROM cra.cra_directors d
-            JOIN general.entity_golden_records e ON e.bn_root = left(d.bn, 9)
-            WHERE COALESCE(trim(concat_ws(' ', d.first_name, d.initials, d.last_name)), '') <> ''
-              AND e.status = 'active'
-              AND e.id IN (
-                  SELECT entity_id FROM general.entity_source_links
-                  WHERE source_schema IN ('fed', 'ab')
-              )
-        ),
-        gift_pairs AS (
+        WITH gift_pairs AS (
             SELECT
                 LEAST(src.id, dst.id) AS entity_id_a,
                 GREATEST(src.id, dst.id) AS entity_id_b,
-                q.total_gifts,
-                concat_ws('|', q.bn, q.fpe::text, q.sequence_number::text) AS source_row_id
+                SUM(q.total_gifts)::float AS total_amount,
+                MIN(concat_ws('|', q.bn, q.fpe::text, q.sequence_number::text))
+                    AS source_row_id,
+                COUNT(*)::int AS gift_count
             FROM cra.cra_qualified_donees q
             JOIN general.entity_golden_records src ON left(q.bn, 9) = src.bn_root
             JOIN general.entity_golden_records dst ON left(q.donee_bn, 9) = dst.bn_root
             WHERE q.total_gifts > 0
               AND src.id IS NOT NULL AND dst.id IS NOT NULL
               AND src.id <> dst.id
+            GROUP BY 1, 2
+            HAVING SUM(q.total_gifts) >= %(min_amount)s
         ),
-        shared_pairs AS (
+        director_orgs AS (
             SELECT
-                a.director_name_normalized,
-                a.entity_id AS entity_id_a,
-                b.entity_id AS entity_id_b
-            FROM dir_entity a
-            JOIN dir_entity b
-              ON a.director_name_normalized = b.director_name_normalized
-             AND a.entity_id < b.entity_id
+                {queries._DIRECTOR_NAME_NORMALIZED_SQL} AS director_name_normalized,
+                e.id AS entity_id
+            FROM cra.cra_directors d
+            JOIN general.entity_golden_records e ON e.bn_root = left(d.bn, 9)
+            WHERE COALESCE(trim(concat_ws(' ', d.first_name, d.initials, d.last_name)), '') <> ''
+        ),
+        pair_directors AS (
+            SELECT
+                gp.entity_id_a,
+                gp.entity_id_b,
+                gp.total_amount,
+                gp.source_row_id,
+                gp.gift_count,
+                da.director_name_normalized
+            FROM gift_pairs gp
+            JOIN director_orgs da ON da.entity_id = gp.entity_id_a
+            JOIN director_orgs db ON db.entity_id = gp.entity_id_b
+                                  AND db.director_name_normalized = da.director_name_normalized
+            WHERE length(da.director_name_normalized) > 4
         )
         SELECT
-            sp.director_name_normalized,
-            sp.entity_id_a,
-            sp.entity_id_b,
-            SUM(gp.total_gifts)::float AS total_amount,
-            MIN(gp.source_row_id) AS source_row_id,
-            COUNT(*)::int AS gift_count
-        FROM shared_pairs sp
-        JOIN gift_pairs gp
-          ON gp.entity_id_a = sp.entity_id_a
-         AND gp.entity_id_b = sp.entity_id_b
-        GROUP BY sp.director_name_normalized, sp.entity_id_a, sp.entity_id_b
-        HAVING SUM(gp.total_gifts) >= %(min_amount)s
+            director_name_normalized,
+            entity_id_a,
+            entity_id_b,
+            total_amount,
+            source_row_id,
+            gift_count
+        FROM pair_directors
         ORDER BY total_amount DESC
         LIMIT %(limit)s
     """
@@ -98,10 +99,14 @@ def enrich_with_names(df: pl.DataFrame) -> pl.DataFrame:
     names = queries.fetch_entities_by_ids(ids)
     name_map = {int(r["entity_id"]): r.get("canonical_name") for r in names.iter_rows(named=True)}
     return df.with_columns(
-        pl.col("entity_id_a").map_elements(lambda i: name_map.get(int(i)) or f"Entity {i}",
-                                            return_dtype=pl.Utf8).alias("name_a"),
-        pl.col("entity_id_b").map_elements(lambda i: name_map.get(int(i)) or f"Entity {i}",
-                                            return_dtype=pl.Utf8).alias("name_b"),
+        pl.col("entity_id_a").map_elements(
+            lambda i: name_map.get(int(i)) or f"Entity {i}",
+            return_dtype=pl.Utf8,
+        ).alias("name_a"),
+        pl.col("entity_id_b").map_elements(
+            lambda i: name_map.get(int(i)) or f"Entity {i}",
+            return_dtype=pl.Utf8,
+        ).alias("name_b"),
     )
 
 
@@ -109,10 +114,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--min-amount", type=float, default=100_000.0)
     parser.add_argument("--limit", type=int, default=200)
-    parser.add_argument(
-        "--out",
-        default=str(CACHE_DIR / "director_rings.parquet"),
-    )
+    parser.add_argument("--out", default=str(CACHE_DIR / "director_rings.parquet"))
     args = parser.parse_args()
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)

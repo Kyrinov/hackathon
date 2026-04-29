@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from typing import Iterable
 
-from src.agents import analyst, briefer, medallion, resolver, state
+from src.agents import analyst, briefer, resolver, state, validators
 
 
 def _source_url(watcher) -> str | None:
@@ -31,9 +31,9 @@ def run_cycle(watchers: Iterable, persist: bool = True, brief_findings: bool = T
             print(f"[scheduler] {w.name}: 0 new rows")
             continue
 
-        batch_id = medallion.new_batch_id()
-        fetched_at = medallion.utcnow_iso()
-        valid_rows, quarantined = medallion.validate_rows(w.name, rows, batch_id)
+        batch_id = validators.new_batch_id()
+        fetched_at = validators.utcnow_iso()
+        valid_rows, quarantined = validators.validate_rows(w.name, rows, batch_id)
         state.insert_quarantine(quarantined)
         state.insert_staged_batch(
             batch_id=batch_id,

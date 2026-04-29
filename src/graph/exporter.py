@@ -7,22 +7,22 @@ import polars as pl
 
 
 NODE_COLORS = {
-    "person": "#2563eb",
-    "charity": "#f97316",
-    "organization": "#f97316",
-    "business": "#16a34a",
-    "company": "#16a34a",
-    "gov": "#dc2626",
-    "unknown": "#64748b",
+    "person": "#60a5fa",
+    "charity": "#fbbf24",
+    "organization": "#fbbf24",
+    "business": "#4ade80",
+    "company": "#4ade80",
+    "gov": "#f87171",
+    "unknown": "#94a3b8",
 }
 
 EDGE_COLORS = {
-    "cra_gift": "#f59e0b",
-    "fed_grant": "#22c55e",
-    "fed_contribution": "#84cc16",
+    "cra_gift": "#fbbf24",
+    "fed_grant": "#4ade80",
+    "fed_contribution": "#a3e635",
     "ab_grant": "#38bdf8",
-    "ab_contract": "#a78bfa",
-    "ab_sole_source": "#ef4444",
+    "ab_contract": "#c4b5fd",
+    "ab_sole_source": "#f87171",
     "cra_director": "#94a3b8",
 }
 

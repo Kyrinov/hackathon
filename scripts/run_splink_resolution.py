@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""OFFLINE-ONLY: organizers ran Splink for this hackathon. Do not run
+on demo day — the entity resolution step takes ~45 min and writes to
+the shared DB. Kept for reproducibility only.
+"""
+
 from __future__ import annotations
 
 import argparse

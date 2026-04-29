@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.agents import medallion, scheduler, state
+from src.agents import scheduler, state, validators
 
 
 class FakeClient:
@@ -31,7 +31,7 @@ class FakeWatcher:
 def test_validate_rows_quarantines_missing_external_id():
     rows = [{"_id": 1, "recipient_legal_name": "Valid"}, {"recipient_legal_name": "Invalid"}]
 
-    valid, quarantine = medallion.validate_rows("fed_grants", rows, "batch-1")
+    valid, quarantine = validators.validate_rows("fed_grants", rows, "batch-1")
 
     assert len(valid) == 1
     assert valid[0]["_batch_id"] == "batch-1"
