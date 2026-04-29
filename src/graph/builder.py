@@ -267,7 +267,7 @@ def find_related_party_rings(min_total_amount: float = 50_000) -> list[dict]:
                 }],
                 "total_amount": amount,
                 "datasets_touched": ["cra"],
-                "flags": ["Director controls multiple funded entities"],
+                "flags": ["Shared directorship across multiple funded entities"],
             })
 
     # Deduplicate by sorted entity set, keep highest-amount version.

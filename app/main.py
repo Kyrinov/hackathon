@@ -30,6 +30,7 @@ from src.db.queries import (
     fetch_entity_source_summary,
     fetch_evidence_for_edge,
 )
+from src.agents.risk_scorer import RISK_BADGE
 from src.graph.builder import build_cra_cycle_graph, build_full_ring_graph
 from src.graph.exporter import EDGE_COLORS, NODE_COLORS, to_evidence_table
 from src.score.scorer import top_rings
@@ -106,7 +107,7 @@ def _load_live_rings() -> list[dict]:
                 return cached
         except Exception:
             pass
-    return top_rings(20)
+    return top_rings(10_000)
 
 
 def _load_agent_state() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -120,7 +121,7 @@ def _load_agent_state() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             for row in conn.execute(
                 "SELECT id, created_at, source, finding_type, ring_id, "
                 "trigger_external_id, narrative, total_amount, severity, entity_ids "
-                "FROM findings ORDER BY created_at DESC LIMIT 25"
+                "FROM findings ORDER BY created_at DESC"
             )
         ]
         sources = [dict(row) for row in conn.execute("SELECT name, last_run_at, rows_fetched_total FROM sources")]
@@ -724,15 +725,29 @@ def _render_case_dossier(
 
 def _network_html(graph: nx.MultiDiGraph, ring: dict, threshold: float) -> str:
     network = Network(height="620px", width="100%", bgcolor="#0f172a", font_color="#e2e8f0", directed=True)
-    # Higher central_gravity keeps nodes pulled toward the middle of the
-    # canvas; without it the Barnes-Hut layout drifts off-screen and judges
-    # have to pan to find the graph.
+    n_nodes = graph.number_of_nodes()
+    # Scale damping and gravity by graph size so large graphs settle quickly
+    # instead of flailing. Small graphs get looser physics for easier manual
+    # arrangement; large graphs get heavy damping and fewer iterations.
+    if n_nodes > 20:
+        gravity, central_gravity, spring_len, spring_str, damping, iterations = (
+            -400, 0.3, 180, 0.03, 0.5, 100
+        )
+    elif n_nodes > 8:
+        gravity, central_gravity, spring_len, spring_str, damping, iterations = (
+            -600, 0.2, 200, 0.025, 0.3, 150
+        )
+    else:
+        gravity, central_gravity, spring_len, spring_str, damping, iterations = (
+            -800, 0.15, 220, 0.02, 0.09, 200
+        )
     network.barnes_hut(
-        gravity=-2200,
-        central_gravity=0.85,
-        spring_length=140,
-        spring_strength=0.04,
-        damping=0.4,
+        gravity=gravity,
+        central_gravity=central_gravity,
+        spring_length=spring_len,
+        spring_strength=spring_str,
+        damping=damping,
+        overlap=1,
     )
     highlighted = {str(entity_id) for entity_id in ring.get("entity_ids", [])}
 
@@ -769,16 +784,17 @@ def _network_html(graph: nx.MultiDiGraph, ring: dict, threshold: float) -> str:
         )
 
     network.set_options(
-        """
-        const options = {
-          "interaction": {"hover": true, "navigationButtons": true, "zoomView": true},
-          "nodes": {"font": {"size": 14, "face": "Inter"}},
-          "edges": {"font": {"size": 11, "align": "middle"}, "smooth": {"type": "dynamic"}},
-          "physics": {
-            "stabilization": {"enabled": true, "iterations": 200, "fit": true},
-            "barnesHut": {"avoidOverlap": 0.5}
-          }
-        }
+        f"""
+        const options = {{
+          "nodes": {{"font": {{"size": 14, "face": "Inter"}}}},
+          "edges": {{"font": {{"size": 11, "align": "middle"}}, "smooth": {{"type": "dynamic"}}}},
+          "physics": {{
+            "stabilization": {{"enabled": true, "iterations": {iterations}, "fit": true}},
+            "barnesHut": {{"avoidOverlap": 1.0, "damping": {damping}, "centralGravity": {central_gravity}}},
+            "minVelocity": 0.75
+          }},
+          "interaction": {{"hover": true, "navigationButtons": true, "zoomView": true, "dragNodes": true}}
+        }}
         """
     )
     html_doc = network.generate_html(notebook=False)
@@ -790,13 +806,23 @@ def _network_html(graph: nx.MultiDiGraph, ring: dict, threshold: float) -> str:
     inject = (
         "network = new vis.Network(container, data, options); "
         "window.__net = network; "
-        "function __fit() { try { network.fit({animation: false}); } catch (e) {} } "
-        "network.once('stabilizationIterationsDone', __fit); "
-        "[120, 350, 700, 1200, 2000, 3500].forEach(function (t) { setTimeout(__fit, t); }); "
-        "if (typeof ResizeObserver !== 'undefined') { "
-        "  try { new ResizeObserver(__fit).observe(container); } catch (e) {} "
+        "function __fit() { "
+        "  try { "
+        "    var bb = network.getBoundingBox(); "
+        "    var cx = (bb.left + bb.right) / 2; "
+        "    var cy = (bb.top + bb.bottom) / 2; "
+        "    network.moveTo({position: {x: cx, y: cy}, animation: false}); "
+        "    network.fit({animation: false}); "
+        "  } catch (e) {} "
         "} "
-        "container.addEventListener('click', __fit, {passive: true});"
+        "network.once('stabilizationIterationsDone', function() { "
+        "  network.setOptions({physics: {enabled: false}}); "
+        "  __fit(); setTimeout(__fit, 100); "
+        "}); "
+        "[200, 500, 900, 1500, 2500, 4000].forEach(function (t) { setTimeout(__fit, t); }); "
+        "if (typeof ResizeObserver !== 'undefined') { "
+        "  try { new ResizeObserver(function(){ setTimeout(__fit, 50); }).observe(container); } catch (e) {} "
+        "} "
     )
     html_doc = html_doc.replace(
         "network = new vis.Network(container, data, options);",
@@ -872,11 +898,26 @@ def _render_ring_panel(
             icon="👤",
         )
 
-    metric_cols = st.columns(4)
-    metric_cols[0].metric("Ring score", f"{float(ring.get('total_score') or 0.0):.2f}")
-    metric_cols[1].metric("Amount", f"${float(ring.get('total_amount') or 0.0):,.0f}")
-    metric_cols[2].metric("Entities", len(ring.get("entity_ids", [])))
-    metric_cols[3].metric("Shared directors", len(shared_persons))
+    composite = float(ring.get("composite_score") or ring.get("total_score") or 0.0)
+    rl = ring.get("risk_level") or ("critical" if composite >= 0.75 else "high" if composite >= 0.55 else "medium" if composite >= 0.35 else "low")
+    badge = RISK_BADGE.get(rl, rl)
+    metric_cols = st.columns(5)
+    metric_cols[0].metric("Risk level", badge)
+    metric_cols[1].metric("Composite score", f"{composite:.2f}")
+    metric_cols[2].metric("Amount", f"${float(ring.get('total_amount') or 0.0):,.0f}")
+    metric_cols[3].metric("Entities", len(ring.get("entity_ids", [])))
+    metric_cols[4].metric("Shared directors", len(shared_persons))
+
+    assessment = ring.get("risk_assessment")
+    if assessment:
+        with st.expander(f"AI risk assessment — {assessment.get('risk_level', rl).upper()}", expanded=True):
+            types = assessment.get("risk_types") or []
+            if types:
+                st.markdown(" · ".join(f"`{t}`" for t in types))
+            if assessment.get("key_concern"):
+                st.warning(assessment["key_concern"], icon="⚠️")
+            if assessment.get("summary"):
+                st.markdown(assessment["summary"])
 
     left, right = st.columns([0.6, 0.4], gap="large")
     with left:
@@ -945,21 +986,44 @@ def _render_ring_panel(
     )
 
 
+_RISK_ICON = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}
+
+
 def _select_ring_in_tab(rings: list[dict], key_prefix: str, empty_msg: str) -> dict | None:
     if not rings:
         st.info(empty_msg)
         return None
-    featured = {
-        f"{ring.get('ring_id', '')} — {', '.join(ring.get('canonical_names', [])[:2])}": ring
-        for ring in rings[:10]
-    }
-    selected_label = st.radio(
-        "Select case",
-        list(featured.keys()),
-        key=f"{key_prefix}-radio",
-        horizontal=False,
+    labels = []
+    for ring in rings:
+        rl = ring.get("risk_level", "low")
+        icon = _RISK_ICON.get(rl, "⚪")
+        names = ", ".join(ring.get("canonical_names", [])[:2])
+        amount = ring.get("total_amount", 0)
+        labels.append(f"{icon} {names}  (${amount:,.0f})")
+    label_to_ring = dict(zip(labels, rings))
+    selected_label = st.selectbox(
+        f"Select case ({len(rings)} total)",
+        labels,
+        key=f"{key_prefix}-select",
     )
-    return featured[selected_label]
+    ring = label_to_ring[selected_label]
+
+    # Show precis immediately below the dropdown — no need to open the panel
+    assessment = ring.get("risk_assessment")
+    if assessment:
+        concern = assessment.get("key_concern", "")
+        types = " · ".join(f"`{t}`" for t in (assessment.get("risk_types") or []))
+        summary = assessment.get("summary", "")
+        st.markdown(
+            f"<div style='background:#1e293b;border-left:3px solid #f59e0b;"
+            f"padding:10px 14px;border-radius:4px;margin:6px 0 12px'>"
+            f"<span style='color:#fbbf24;font-weight:600'>⚠ {concern}</span><br>"
+            f"<span style='color:#94a3b8;font-size:0.85rem'>{types}</span><br>"
+            f"<span style='color:#cbd5e1;font-size:0.88rem'>{summary}</span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    return ring
 
 
 def main() -> None:
@@ -1034,16 +1098,33 @@ def main() -> None:
         }
 
         /* ---- Tabs ---- */
+        div[data-testid="stTabs"] {
+            border-bottom: 2px solid #1e293b;
+            margin-bottom: 1.2rem;
+        }
         div[data-testid="stTabs"] button[role="tab"] {
             color: #94a3b8;
-            font-weight: 500;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 0.75rem 1.4rem;
+            border-radius: 8px 8px 0 0;
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-bottom: none;
+            margin-right: 4px;
+            letter-spacing: 0.01em;
+            transition: background 0.15s, color 0.15s;
+        }
+        div[data-testid="stTabs"] button[role="tab"]:hover {
+            background: #1e293b;
+            color: #e2e8f0;
         }
         div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
-            color: #60a5fa;
-            font-weight: 600;
-        }
-        div[data-testid="stTabs"] [data-testid="stTab"] {
-            background: transparent;
+            color: #f8fafc;
+            background: #1e40af;
+            border-color: #1e40af;
+            font-weight: 700;
+            font-size: 1.05rem;
         }
 
         /* ---- Dataframes ---- */
@@ -1147,18 +1228,21 @@ def main() -> None:
                 "disbursements connected to existing CRA-detected funding rings. "
                 "All evidence traces to public records."
             )
-            for finding in findings[:5]:
+            for finding in findings:
                 severity = finding.get("severity")
                 badge = {"urgent": "🔴", "review": "🟡", "info": "🔵"}.get(severity, "⚪")
                 timestamp = (finding.get("created_at") or "")[:19].replace("T", " ")
                 total_amount = finding.get("total_amount")
                 amount_s = f"${total_amount:,.0f}" if total_amount else "—"
+                ring_id = finding.get("ring_id") or "—"
+                ring_meta = ring_lookup.get(ring_id, {})
+                names = ring_meta.get("canonical_names") or []
+                ring_label = ", ".join(names[:3]) + (" …" if len(names) > 3 else "") if names else ring_id
                 with st.container(border=True):
                     row = st.columns([0.08, 0.50, 0.20, 0.22])
                     row[0].markdown(f"**{badge}**")
                     row[1].markdown(
-                        f"**{finding.get('source') or '—'}** → ring "
-                        f"`{finding.get('ring_id') or '—'}`"
+                        f"**{finding.get('source') or '—'}** → {ring_label}"
                     )
                     row[2].markdown(f"`{finding.get('finding_type') or '—'}`")
                     row[3].markdown(f"**{amount_s}**  ·  {timestamp or '—'}")

@@ -18,6 +18,8 @@ from pathlib import Path
 
 import polars as pl
 
+from src.agents.risk_analyst import assess_batch
+from src.agents.risk_scorer import composite_score, risk_level
 from src.db import queries
 from src.db.connection import get_conn
 
@@ -149,9 +151,9 @@ def fetch_shared_directors_bulk(entity_ids: list[int]) -> dict[int, list[str]]:
 def main() -> int:
     CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    print("[prewarm] fetching top 80 CRA cycles ...")
+    print("[prewarm] fetching all CRA cycles ...")
     t = time.time()
-    cycles_df = fetch_top_cycles(80)
+    cycles_df = fetch_top_cycles(10_000)
     print(f"[prewarm] {len(cycles_df)} cycles in {time.time() - t:.1f}s")
     if cycles_df.is_empty():
         print("[prewarm] no cycles — DB unreachable or empty")
@@ -248,14 +250,18 @@ def main() -> int:
             "total_score": score,
             "datasets_touched": ["cra"],
             "flags": (
-                ["Round-trip funding (CRA-confirmed)", "Director controls multiple funded entities"]
+                ["Round-trip funding (CRA-confirmed)", "Shared directorship across multiple funded entities"]
                 if shared else ["Round-trip funding (CRA-confirmed)"]
             ),
         })
 
-    # Sort: shared-director rings on top, then by amount.
-    rings.sort(key=lambda r: (bool(r.get("shared_persons")), r["total_amount"]), reverse=True)
-    rings = rings[:30]
+    # --- Pass 1: deterministic composite score on every ring ---
+    print("[prewarm] scoring all rings ...")
+    for r in rings:
+        r["composite_score"] = composite_score(r)
+        r["risk_level"] = risk_level(r["composite_score"])
+
+    rings.sort(key=lambda r: r["composite_score"], reverse=True)
 
     by_type = {}
     with_shared = 0
@@ -264,7 +270,14 @@ def main() -> int:
         if r.get("shared_persons"):
             with_shared += 1
 
-    print(f"[prewarm] kept {len(rings)} rings: {by_type}, {with_shared} with shared director")
+    print(f"[prewarm] scored {len(rings)} rings: {by_type}, {with_shared} with shared director")
+
+    # --- Pass 2: LLM narrative on top 100 by composite score ---
+    print("[prewarm] running LLM risk analysis on top 100 rings ...")
+    t = time.time()
+    rings = assess_batch(rings, top_n=100, delay=0.2)
+    print(f"[prewarm] LLM analysis done in {time.time() - t:.1f}s")
+
     CACHE_PATH.write_text(json.dumps(rings, default=str, ensure_ascii=False))
     print(f"[prewarm] wrote {CACHE_PATH} ({CACHE_PATH.stat().st_size:,} bytes)")
     return 0

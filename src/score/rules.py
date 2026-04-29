@@ -61,7 +61,7 @@ def rule_shared_director(entity_id, director_threshold: int = 3) -> tuple[float,
                     "org_count": candidate.get("org_count"),
                 }
             )
-    return (0.3, "Director controls multiple funded entities", evidence) if evidence else (0.0, "", [])
+    return (0.3, "Shared directorship across multiple funded entities", evidence) if evidence else (0.0, "", [])
 
 
 def rule_sole_source_growth(entity_id) -> tuple[float, str, list]:
