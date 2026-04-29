@@ -1268,7 +1268,9 @@ def main() -> None:
             "that received federal grants AND of an entity that received "
             "Alberta contracts or sole-source awards. Both sides require "
             "T3010 director records — pure-commercial contractors with no "
-            "T3010 history are not surfaced from this dataset alone."
+            "T3010 history are not surfaced from this dataset alone. "
+            "Closed-loop cases (charity also sent CRA gifts directly to the "
+            "contractor) are ranked first and marked with a warning."
         )
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
         crossover = _load_crossover()
@@ -1279,45 +1281,63 @@ def main() -> None:
                 "to materialize."
             )
         else:
-            cols = st.columns(4)
+            has_closed_loop_col = "closed_loop" in crossover.columns
+            closed_count = int(crossover["closed_loop"].sum()) if has_closed_loop_col else 0
+
+            cols = st.columns(5)
             cols[0].metric("Crossover pairs", len(crossover))
-            cols[1].metric(
+            cols[1].metric("Closed loop", closed_count,
+                           help="Charity also sent CRA gifts directly to the contractor — strongest evidence")
+            cols[2].metric(
                 "Total federal grants",
                 f"${float(crossover['total_grant_amount'].sum()):,.0f}",
             )
-            cols[2].metric(
+            cols[3].metric(
                 "Total AB contracts",
                 f"${float(crossover['total_contract_amount'].sum()):,.0f}",
             )
             distinct_directors = (
                 crossover["shared_directors"].explode().drop_nulls().n_unique()
             )
-            cols[3].metric("Distinct directors", distinct_directors)
+            cols[4].metric("Distinct directors", distinct_directors)
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
             # ---- Per-pair graph view ----
             crossover_rows = crossover.to_dicts()
-            row_label = {
-                f"{r.get('charity_name', '?')} ↔ {r.get('contractor_name', '?')} · "
-                f"${float(r.get('total_contract_amount') or 0):,.0f} contract": r
-                for r in crossover_rows[:50]
-            }
+
+            def _pair_label(r: dict) -> str:
+                prefix = "CLOSED LOOP · " if r.get("closed_loop") else ""
+                return (
+                    f"{prefix}{r.get('charity_name', '?')} ↔ {r.get('contractor_name', '?')} · "
+                    f"${float(r.get('total_contract_amount') or 0):,.0f} contract"
+                )
+
+            row_label = {_pair_label(r): r for r in crossover_rows[:50]}
             selected_label = st.selectbox(
                 "Inspect a crossover pair",
                 list(row_label),
                 key="crossover-select",
                 help=(
+                    "Closed-loop pairs (charity → contractor gift confirmed) are listed first. "
                     "Each row links a charity that received federal grants to "
                     "a contractor that received AB awards via at least one "
-                    "shared CRA director. Pick one to render the triangle."
+                    "shared CRA director."
                 ),
             )
             selected_row = row_label[selected_label]
             shared = ", ".join(str(d) for d in (selected_row.get("shared_directors") or []) if d)
-            if shared:
+
+            if selected_row.get("closed_loop"):
+                gift_amt = float(selected_row.get("gift_to_contractor") or 0)
+                st.error(
+                    f"**Closed loop confirmed:** charity sent ${gift_amt:,.0f} in CRA gifts "
+                    f"directly to this contractor. Shared director(s): `{shared}`",
+                    icon="🔴",
+                )
+            elif shared:
                 st.success(f"**Shared director(s):** `{shared}`")
 
-            metric_cols = st.columns(4)
+            metric_cols = st.columns(5)
             metric_cols[0].metric(
                 "Federal grants → charity",
                 f"${float(selected_row.get('total_grant_amount') or 0):,.0f}",
@@ -1327,10 +1347,16 @@ def main() -> None:
                 f"${float(selected_row.get('total_contract_amount') or 0):,.0f}",
             )
             metric_cols[2].metric(
+                "CRA gifts → contractor",
+                f"${float(selected_row.get('gift_to_contractor') or 0):,.0f}"
+                if has_closed_loop_col else "—",
+                help="Direct CRA T3010 gift from this charity to the contractor entity",
+            )
+            metric_cols[3].metric(
                 "Contract type",
                 str(selected_row.get("contract_source") or "—"),
             )
-            metric_cols[3].metric(
+            metric_cols[4].metric(
                 "Shared directors",
                 len(selected_row.get("shared_directors") or []),
             )
@@ -1341,21 +1367,31 @@ def main() -> None:
                     f"crossover-charity-{selected_row.get('charity_entity_id')}",
                     f"crossover-contractor-{selected_row.get('contractor_entity_id')}",
                 ],
-                "total_score": 0.7,
-                "flags": ["Contractor / charity-director crossover"],
+                "total_score": 0.9 if selected_row.get("closed_loop") else 0.7,
+                "flags": (
+                    ["Closed loop: charity gifted directly to contractor", "Shared director crossover"]
+                    if selected_row.get("closed_loop")
+                    else ["Contractor / charity-director crossover"]
+                ),
             }
             html(_network_html(crossover_g, stub_ring, threshold), height=520)
 
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
             with st.expander("All crossover pairs", expanded=False):
-                display = crossover.select(
+                select_cols = [
                     pl.col("charity_name").alias("Charity (federal-grant recipient)"),
                     pl.col("contractor_name").alias("Contractor (AB award recipient)"),
                     pl.col("shared_directors").list.join(", ").alias("director(s)"),
                     pl.col("total_grant_amount").round(0).cast(pl.Int64).alias("federal grants ($)"),
                     pl.col("total_contract_amount").round(0).cast(pl.Int64).alias("AB contracts ($)"),
                     pl.col("contract_source").alias("Contract type"),
-                )
+                ]
+                if has_closed_loop_col:
+                    select_cols.append(
+                        pl.col("gift_to_contractor").round(0).cast(pl.Int64).alias("CRA gift to contractor ($)")
+                    )
+                    select_cols.append(pl.col("closed_loop").alias("Closed loop"))
+                display = crossover.select(select_cols)
                 st.dataframe(display, width="stretch", hide_index=True)
 
             st.caption(

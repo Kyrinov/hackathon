@@ -118,9 +118,41 @@ def _fetch_charities_for_directors(
     return pl.DataFrame(list(rows)) if rows else pl.DataFrame()
 
 
+def _fetch_direct_gifts(pairs: list[tuple[int, int]]) -> dict[tuple[int, int], float]:
+    """Step 3: check cra.loop_edges for direct charity→contractor gift flows.
+
+    Returns {(charity_entity_id, contractor_entity_id): total_gift_amount}
+    for pairs where the charity has sent CRA gifts directly to the contractor.
+    This is the strongest evidence of a closed self-dealing loop.
+    """
+    if not pairs:
+        return {}
+    sql = """
+        SELECT
+            src_e.id AS charity_entity_id,
+            dst_e.id AS contractor_entity_id,
+            SUM(COALESCE(le.total_amt, 0))::float AS gift_to_contractor
+        FROM cra.loop_edges le
+        JOIN general.entity_golden_records src_e
+            ON src_e.bn_root = left(le.src, 9) AND src_e.status = 'active'
+        JOIN general.entity_golden_records dst_e
+            ON dst_e.bn_root = left(le.dst, 9) AND dst_e.status = 'active'
+        WHERE (src_e.id, dst_e.id) = ANY(%(pairs)s)
+        GROUP BY 1, 2
+    """
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(sql, {"pairs": pairs})
+        rows = cur.fetchall()
+    return {
+        (int(r["charity_entity_id"]), int(r["contractor_entity_id"])): float(r["gift_to_contractor"])
+        for r in rows
+    }
+
+
 def fetch_crossover(min_grant: float, min_contract: float, limit: int) -> pl.DataFrame:
-    """Two-step: contractor side first (small), then charity side filtered
-    by names that appeared on the contractor side. Stitched in Python."""
+    """Three-step: contractor side first (small), then charity side filtered
+    by names, then direct gift-flow check to find closed self-dealing loops."""
     print("[crossover] step 1: contractors with CRA directors ...")
     t = time.time()
     contractors = _fetch_contractor_directors(min_contract)
@@ -152,6 +184,31 @@ def fetch_crossover(min_grant: float, min_contract: float, limit: int) -> pl.Dat
         .sort(["total_contract_amount", "total_grant_amount"], descending=True)
         .head(limit)
     )
+
+    # Step 3: flag pairs where the charity sent CRA gifts directly to the contractor
+    print(f"[crossover] step 3: checking direct charity→contractor gift flows for {len(grouped)} pairs ...")
+    t = time.time()
+    pairs = [
+        (int(r["charity_entity_id"]), int(r["contractor_entity_id"]))
+        for r in grouped.iter_rows(named=True)
+    ]
+    gift_map = _fetch_direct_gifts(pairs)
+    print(f"[crossover]   {len(gift_map)} closed-loop pairs found in {time.time() - t:.1f}s")
+
+    grouped = grouped.with_columns(
+        pl.Series(
+            "gift_to_contractor",
+            [gift_map.get((int(r["charity_entity_id"]), int(r["contractor_entity_id"])), 0.0)
+             for r in grouped.iter_rows(named=True)],
+            dtype=pl.Float64,
+        )
+    ).with_columns(
+        (pl.col("gift_to_contractor") > 0).alias("closed_loop")
+    ).sort(
+        ["closed_loop", "total_contract_amount", "total_grant_amount"],
+        descending=True,
+    )
+
     return grouped
 
 
