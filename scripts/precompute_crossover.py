@@ -127,6 +127,9 @@ def _fetch_direct_gifts(pairs: list[tuple[int, int]]) -> dict[tuple[int, int], f
     """
     if not pairs:
         return {}
+    pair_set = set(pairs)
+    charity_ids = sorted({c for c, _ in pairs})
+    contractor_ids = sorted({k for _, k in pairs})
     sql = """
         SELECT
             src_e.id AS charity_entity_id,
@@ -137,16 +140,18 @@ def _fetch_direct_gifts(pairs: list[tuple[int, int]]) -> dict[tuple[int, int], f
             ON src_e.bn_root = left(le.src, 9) AND src_e.status = 'active'
         JOIN general.entity_golden_records dst_e
             ON dst_e.bn_root = left(le.dst, 9) AND dst_e.status = 'active'
-        WHERE (src_e.id, dst_e.id) = ANY(%(pairs)s)
+        WHERE src_e.id = ANY(%(charity_ids)s)
+          AND dst_e.id = ANY(%(contractor_ids)s)
         GROUP BY 1, 2
     """
     conn = get_conn()
     with conn.cursor() as cur:
-        cur.execute(sql, {"pairs": pairs})
+        cur.execute(sql, {"charity_ids": charity_ids, "contractor_ids": contractor_ids})
         rows = cur.fetchall()
     return {
         (int(r["charity_entity_id"]), int(r["contractor_entity_id"])): float(r["gift_to_contractor"])
         for r in rows
+        if (int(r["charity_entity_id"]), int(r["contractor_entity_id"])) in pair_set
     }
 
 
